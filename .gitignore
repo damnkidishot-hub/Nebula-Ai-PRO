@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+*.log
+nebula.db
+models/*.gguf

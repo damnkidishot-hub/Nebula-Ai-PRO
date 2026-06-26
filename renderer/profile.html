@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile - Nebula Code AI</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <a class="back" href="chat.html">← Back to chat</a>
+    <h2>Profile</h2>
+    <p class="muted">Update your display name, email and avatar.</p>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
+        <div class="avatar" id="avatarPreview" style="width:64px;height:64px;font-size:22px"></div>
+        <div><strong id="namePreview"></strong><br><small style="color:var(--muted)" id="userPreview"></small></div>
+      </div>
+
+      <label>Display name</label>
+      <input id="displayName" type="text" />
+
+      <label>Email</label>
+      <input id="email" type="email" />
+
+      <label>Avatar image URL (optional)</label>
+      <input id="avatar" type="text" placeholder="https://..." />
+
+      <button class="btn" id="saveBtn">Save profile</button>
+      <div class="error" id="status" style="color:var(--accent-2)"></div>
+    </div>
+  </div>
+  <script src="js/common.js"></script>
+  <script src="js/profile.js"></script>
+</body>
+</html>

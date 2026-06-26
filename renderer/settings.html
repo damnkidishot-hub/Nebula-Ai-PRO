@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings - Nebula Code AI</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <a class="back" href="chat.html">← Back to chat</a>
+    <h2>Settings</h2>
+    <p class="muted">Configure default model, API key and generation behavior.</p>
+
+    <div class="card">
+      <label>Default model</label>
+      <select id="defaultModel"></select>
+
+      <label>OpenRouter API key (fallback)</label>
+      <input id="openrouterKey" type="password" placeholder="sk-or-v1-..." />
+      <p class="muted" style="margin-top:8px;font-size:12px">Used when a model JSON has <code class="inline">"api": "none"</code> or omits a key.</p>
+
+      <label>Temperature: <span id="tempVal">0.7</span></label>
+      <input id="temperature" type="range" min="0" max="1.5" step="0.1" value="0.7" />
+
+      <label>Theme</label>
+      <div class="seg" id="themeSeg">
+        <button data-theme="dark">Dark</button>
+        <button data-theme="light">Light</button>
+        <button data-theme="system">System</button>
+      </div>
+
+      <button class="btn" id="saveBtn">Save settings</button>
+      <div class="error" id="status" style="color:var(--ok)"></div>
+    </div>
+  </div>
+  <script src="js/common.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+</html>

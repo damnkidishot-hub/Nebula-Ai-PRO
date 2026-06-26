@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nebula Code AI</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><span class="dot"></span><strong>Nebula Code AI</strong></div>
+      <div class="new-chat" id="newChat">+ New chat</div>
+      <div class="search-box"><input id="chatSearch" type="text" placeholder="Search chats..." /></div>
+      <div class="chat-list" id="chatList"></div>
+      <div class="sidebar-footer">
+        <div class="avatar" id="navAvatar"></div>
+        <div class="who" id="navWho"></div>
+        <button class="icon-btn" title="Profile" onclick="location.href='profile.html'">👤</button>
+        <button class="icon-btn" title="Settings" onclick="location.href='settings.html'">⚙️</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <button class="icon-btn" id="toggleSidebar" title="Toggle sidebar">☰</button>
+        <h2 id="chatTitle">New chat</h2>
+        <div class="spacer"></div>
+        <button class="icon-btn" id="themeBtn" title="Toggle theme">☽</button>
+        <button class="icon-btn" id="exportBtn" title="Export chat">⤓</button>
+        <button class="icon-btn" id="logoutBtn" title="Log out">⏻</button>
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="empty" id="emptyState">
+          <div class="big">How can I help you build today?</div>
+          <div>Pick a model, choose a mode, and start chatting.</div>
+          <div class="suggest" id="suggest">
+            <div class="card-s" data-q="Build a responsive pricing page in HTML and CSS">Build a pricing page<small>HTML + CSS, then preview it</small></div>
+            <div class="card-s" data-q="Write a React counter component named App">React component<small>Live preview included</small></div>
+            <div class="card-s" data-q="Explain async/await in JavaScript with examples">Explain a concept<small>async / await</small></div>
+            <div class="card-s" data-q="Refactor this function to be cleaner: ">Refactor code<small>Paste your snippet</small></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="composer-inner">
+          <div class="composer-controls">
+            <div class="pill" id="modelPill">
+              <span>🧠</span><span id="modelLabel">Select model</span><span class="caret">▾</span>
+              <div class="dropdown" id="modelDropdown"></div>
+            </div>
+            <div class="pill" id="modePill">
+              <span>⚡</span><span id="modeLabel">Normal</span><span class="caret">▾</span>
+              <div class="dropdown" id="modeDropdown">
+                <div class="opt sel" data-mode="normal">Normal<small>Ask and get a response</small></div>
+                <div class="opt" data-mode="agent">Agent<small>Autonomous (coming soon)</small></div>
+              </div>
+            </div>
+          </div>
+          <div class="composer-input">
+            <textarea id="input" rows="1" placeholder="Message Nebula...  (Enter to send, Shift+Enter for newline)"></textarea>
+            <button class="send" id="sendBtn" title="Send">↑</button>
+          </div>
+        </div>
+        <div class="composer-hint"><span id="charCount">0</span> chars · Ctrl/Cmd+K commands · Esc to stop</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/chat.js"></script>
+</body>
+</html>

@@ -3,12 +3,13 @@ const fs = require('fs/promises');
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
-const http = require('http'); // Added for the web server
+const http = require('http');
 
 const execPromise = util.promisify(exec);
 
 // --- CONFIGURATION ---
-const API_KEY = "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";
+// FIX: Use environment variable for API key instead of hardcoding
+const API_KEY = process.env.OPENROUTER_API_KEY || "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";
 const MODEL = "poolside/laguna-xs.2:free";
 
 // --- TERMINAL UI COLORS ---
@@ -23,12 +24,10 @@ const colors = {
 
 // --- STATE ---
 let currentMode = 'normal'; // 'normal' | 'agent'
+// FIX: Dynamic date using new Date().toDateString() instead of hardcoded date
 let messageHistory = [{
     role: "system",
-    content: `You are a highly capable AI assistant inside a terminal. Current date is Friday, June 26, 2026. Location: Bangladesh. 
-When in Agent mode, you have access to tools to interact with the user's file system and execute commands. 
-Use tools efficiently. If reading a file, use 'all' for the whole file, or 'startLine' and 'endLine' to read a specific portion. 
-When editing a file, provide the exact 'startLine' and 'endLine' numbers, and the new 'content' to replace that section.`
+    content: "You are a highly capable AI assistant inside a terminal. Current date is " + new Date().toDateString() + ". Location: Bangladesh. \nWhen in Agent mode, you have access to tools to interact with the user's file system and execute commands. \nUse tools efficiently. If reading a file, use 'all' for the whole file, or 'startLine' and 'endLine' to read a specific portion. \nWhen editing a file, provide the exact 'startLine' and 'endLine' numbers, and the new 'content' to replace that section."
 }];
 
 // --- TOOLS SCHEMA ---
@@ -111,7 +110,6 @@ const agentTools = [
             }
         }
     },
-    // ADDED: Move tool as requested
     {
         type: "function",
         function: {
@@ -140,7 +138,7 @@ async function executeTool(name, args) {
             case 'read_file': {
                 const content = await fs.readFile(absolutePath, 'utf8');
                 if (parsedArgs.all) return content;
-                
+
                 const lines = content.split('\n');
                 const start = (parsedArgs.startLine || 1) - 1;
                 const end = parsedArgs.endLine || lines.length;
@@ -151,39 +149,38 @@ async function executeTool(name, args) {
                 const lines = content.split('\n');
                 const startIdx = parsedArgs.startLine - 1;
                 const deleteCount = parsedArgs.endLine - parsedArgs.startLine + 1;
-                
+
                 lines.splice(startIdx, deleteCount, parsedArgs.content);
                 await fs.writeFile(absolutePath, lines.join('\n'), 'utf8');
-                return `Success: Edited ${absolutePath}. Replaced lines ${parsedArgs.startLine} to ${parsedArgs.endLine}.`;
+                return 'Success: Edited ' + absolutePath + '. Replaced lines ' + parsedArgs.startLine + ' to ' + parsedArgs.endLine + '.';
             }
             case 'run_cmd': {
                 const { stdout, stderr } = await execPromise(parsedArgs.command);
-                return `STDOUT:\n${stdout || 'None'}\nSTDERR:\n${stderr || 'None'}`;
+                return 'STDOUT:\n' + (stdout || 'None') + '\nSTDERR:\n' + (stderr || 'None');
             }
             case 'create_item': {
                 if (parsedArgs.type === 'folder') {
                     await fs.mkdir(absolutePath, { recursive: true });
-                    return `Success: Folder created at ${absolutePath}`;
+                    return 'Success: Folder created at ' + absolutePath;
                 } else {
                     await fs.writeFile(absolutePath, parsedArgs.content || '', 'utf8');
-                    return `Success: File created at ${absolutePath}`;
+                    return 'Success: File created at ' + absolutePath;
                 }
             }
             case 'delete_item': {
                 await fs.rm(absolutePath, { recursive: true, force: true });
-                return `Success: Deleted ${absolutePath}`;
+                return 'Success: Deleted ' + absolutePath;
             }
-            // ADDED: Move item logic
             case 'move_item': {
                 const destPath = path.resolve(process.cwd(), parsedArgs.destinationPath);
                 await fs.rename(absolutePath, destPath);
-                return `Success: Moved/Renamed to ${destPath}`;
+                return 'Success: Moved/Renamed to ' + destPath;
             }
             default:
-                return `Error: Tool ${name} not found.`;
+                return 'Error: Tool ' + name + ' not found.';
         }
     } catch (error) {
-        return `Error executing ${name}: ${error.message}`;
+        return 'Error executing ' + name + ': ' + error.message;
     }
 }
 
@@ -203,7 +200,7 @@ async function chatWithModel(messages, onChunk) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-            "Authorization": `Bearer ${API_KEY}`,
+            "Authorization": "Bearer " + API_KEY,
             "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
@@ -211,7 +208,7 @@ async function chatWithModel(messages, onChunk) {
 
     if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`API Error (${response.status}): ${errText}`);
+        throw new Error('API Error (' + response.status + '): ' + errText);
     }
 
     const decoder = new TextDecoder("utf-8");
@@ -230,11 +227,11 @@ async function chatWithModel(messages, onChunk) {
             if (line.startsWith('data: ')) {
                 const dataStr = line.slice(6).trim();
                 if (dataStr === '[DONE]') continue;
-                
+
                 try {
                     const data = JSON.parse(dataStr);
                     const delta = data.choices[0]?.delta;
-                    
+
                     if (!delta) continue;
 
                     // Handle text content streaming
@@ -248,10 +245,10 @@ async function chatWithModel(messages, onChunk) {
                         for (let tc of delta.tool_calls) {
                             let idx = tc.index;
                             if (!toolCalls[idx]) {
-                                toolCalls[idx] = { 
-                                    id: tc.id, 
-                                    type: 'function', 
-                                    function: { name: '', arguments: '' } 
+                                toolCalls[idx] = {
+                                    id: tc.id,
+                                    type: 'function',
+                                    function: { name: '', arguments: '' }
                                 };
                             }
                             if (tc.function?.name) toolCalls[idx].function.name += tc.function.name;
@@ -259,15 +256,30 @@ async function chatWithModel(messages, onChunk) {
                         }
                     }
                 } catch (e) {
-                    // Silently ignore incomplete JSON chunks that will be resolved in next line
+                    // Silently ignore incomplete JSON chunks
                 }
             }
         }
     }
 
+    // FIX: Process any remaining data left in buffer after stream ends
+    if (buffer.trim() && buffer.trim().startsWith('data: ')) {
+        const dataStr = buffer.trim().slice(6).trim();
+        if (dataStr && dataStr !== '[DONE]') {
+            try {
+                const data = JSON.parse(dataStr);
+                const delta = data.choices?.[0]?.delta;
+                if (delta?.content) {
+                    finalContent += delta.content;
+                    if (onChunk) onChunk(delta.content);
+                }
+            } catch(e) {}
+        }
+    }
+
     // Construct the final message block to add to history
     const resultMessage = { role: "assistant", content: finalContent || null };
-    
+
     // Filter out any sparse array slots just in case
     const validToolCalls = toolCalls.filter(tc => tc !== undefined);
     if (validToolCalls.length > 0) {
@@ -277,7 +289,7 @@ async function chatWithModel(messages, onChunk) {
     return resultMessage;
 }
 
-// --- WEB SERVER (ADDED FOR FRONTEND UI) ---
+// --- WEB SERVER ---
 const server = http.createServer(async (req, res) => {
     // Serve the frontend file
     if (req.url === '/' || req.url === '/index.html') {
@@ -289,15 +301,14 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(500);
             res.end('Error loading public/index.html. Make sure the file exists.');
         }
-    } 
-// ... existing code ...
+    }
     // Handle Chat API requests from the frontend
     else if (req.url === '/api/chat' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => body += chunk.toString());
         req.on('end', async () => {
             const { input, mode } = JSON.parse(body);
-            
+
             // Set up Server-Sent Events (SSE) stream to the browser
             res.writeHead(200, {
                 'Content-Type': 'text/event-stream',
@@ -310,35 +321,33 @@ const server = http.createServer(async (req, res) => {
 
             try {
                 let isComplete = false;
-                
+
                 // Watch for client disconnect / stop button pressed
                 req.on('close', () => {
-                    isComplete = true; 
+                    isComplete = true;
                 });
 
                 while (!isComplete) {
                     const responseMessage = await chatWithModel(messageHistory, (chunk) => {
                         if (!isComplete) {
-                            res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
+                            res.write('data: ' + JSON.stringify({ type: 'chunk', content: chunk }) + '\n\n');
                         }
                     });
 
-                    if (isComplete) break; // Terminate early if the client aborted
+                    if (isComplete) break;
 
                     if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
                         messageHistory.push(responseMessage);
                         for (const toolCall of responseMessage.tool_calls) {
                             const funcName = toolCall.function.name;
                             const funcArgs = toolCall.function.arguments;
-                            
-                            // Send structured tool call info to UI
-                            res.write(`data: ${JSON.stringify({ type: 'tool_call', id: toolCall.id, name: funcName, args: funcArgs })}\n\n`);
-                            
+
+                            res.write('data: ' + JSON.stringify({ type: 'tool_call', id: toolCall.id, name: funcName, args: funcArgs }) + '\n\n');
+
                             const toolResult = await executeTool(funcName, funcArgs);
-                            
-                            // Send structured tool result to UI
-                            res.write(`data: ${JSON.stringify({ type: 'tool_result', id: toolCall.id, result: String(toolResult) })}\n\n`);
-                            
+
+                            res.write('data: ' + JSON.stringify({ type: 'tool_result', id: toolCall.id, result: String(toolResult) }) + '\n\n');
+
                             messageHistory.push({
                                 tool_call_id: toolCall.id,
                                 role: "tool",
@@ -351,10 +360,10 @@ const server = http.createServer(async (req, res) => {
                         isComplete = true;
                     }
                 }
-                res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+                res.write('data: ' + JSON.stringify({ type: 'done' }) + '\n\n');
                 res.end();
             } catch (error) {
-                res.write(`data: ${JSON.stringify({ type: 'error', content: error.message })}\n\n`);
+                res.write('data: ' + JSON.stringify({ type: 'error', content: error.message }) + '\n\n');
                 res.end();
                 messageHistory.pop();
             }
@@ -366,6 +375,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(3000, () => {
-    console.log(`${colors.cyan}🌐 Web interface running at http://localhost:3000${colors.reset}`);
-    console.log(`${colors.yellow}⚠️ Terminal interface has been disabled as requested. Please use the web UI!${colors.reset}`);
+    console.log(colors.cyan + ' Web interface running at http://localhost:3000' + colors.reset);
+    console.log(colors.yellow + ' Terminal interface has been disabled. Please use the web UI!' + colors.reset);
 });

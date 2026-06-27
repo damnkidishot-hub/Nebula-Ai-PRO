@@ -1,14 +1,14 @@
 {
-  "name": "backup-of-code-nebula",
+  "name": "nebula-ai-pro",
   "version": "1.0.0",
   "description": "",
-  "homepage": "https://github.com/damnkidishot-hub/Nebula-Code#readme",
+  "homepage": "https://github.com/damnkidishot-hub/Nebula-Ai-PRO#readme",
   "bugs": {
-    "url": "https://github.com/damnkidishot-hub/Nebula-Code/issues"
+    "url": "https://github.com/damnkidishot-hub/Nebula-Ai-PRO/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/damnkidishot-hub/Nebula-Code.git"
+    "url": "git+https://github.com/damnkidishot-hub/Nebula-Ai-PRO.git"
   },
   "license": "ISC",
   "author": "",

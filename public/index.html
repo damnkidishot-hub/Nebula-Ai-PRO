@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Agent UI</title>
+    <title>Nebula AI PRO</title>
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
     
-    <!-- Markdown parsing & Code Highlighting -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- FIX: Pinned marked to v4.3.0 (v5+ dropped the highlight option) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
@@ -258,7 +258,7 @@
             background-color: #1a1a1a;
             display: none;
         }
-        
+
         .tool-body pre {
             margin: 0;
             white-space: pre-wrap;
@@ -374,7 +374,7 @@
             color: var(--text-primary);
             background-color: var(--text-primary);
         }
-        
+
         .send-btn.active svg {
             color: var(--bg-color);
         }
@@ -397,13 +397,10 @@
             background-color: rgba(242, 139, 130, 0.1);
         }
 
-        .hidden {
-            display: none !important;
-        }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-
     <div id="chat-container">
         <div class="message-wrapper ai">
             <div class="avatar avatar-ai">
@@ -515,7 +512,7 @@
         function appendUserMessage(text) {
             const wrapper = document.createElement('div');
             wrapper.className = 'message-wrapper user';
-            wrapper.innerHTML = `<div class="message-content">${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+            wrapper.innerHTML = '<div class="message-content">' + text.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</div>';
             chatContainer.appendChild(wrapper);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
@@ -523,12 +520,12 @@
         function createAiMessageContainer() {
             const wrapper = document.createElement('div');
             wrapper.className = 'message-wrapper ai';
-            wrapper.innerHTML = `
-                <div class="avatar avatar-ai">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
-                </div>
-                <div class="message-content"></div>
-            `;
+            wrapper.innerHTML = '\
+                <div class="avatar avatar-ai">\
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>\
+                </div>\
+                <div class="message-content"></div>\
+            ';
             chatContainer.appendChild(wrapper);
             activeAiMessage = wrapper.querySelector('.message-content');
             activeTextBlock = null; 
@@ -545,22 +542,26 @@
             return activeTextBlock;
         }
 
-        // Generate specific tool icons based on the tool's name
+        // FIX: Generate specific tool icons - now handles run_cmd, delete_item, move_item correctly
         function getToolIcon(name) {
-            if (name.includes('file') && (name.includes('read') || name.includes('list'))) {
-                return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+            if (name.includes('read_file')) {
+                return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
             } else if (name.includes('edit') || name.includes('create') || name.includes('write')) {
-                return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`;
-            } else if (name.includes('command') || name.includes('exec') || name.includes('bash')) {
-                return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`;
+                return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>';
+            } else if (name.includes('run_cmd') || name.includes('command') || name.includes('exec') || name.includes('bash') || name.includes('cmd')) {
+                return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>';
+            } else if (name.includes('delete')) {
+                return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>';
+            } else if (name.includes('move')) {
+                return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line><polyline points="19 9 22 12 19 15"></polyline><polyline points="9 19 12 22 15 19"></polyline></svg>';
             }
-            return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`;
+            return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>';
         }
         
         function formatToolArgs(argsStr) {
             try {
                 const args = JSON.parse(argsStr);
-                const items = Object.entries(args).map(([k,v]) => `${k}=${JSON.stringify(v)}`);
+                const items = Object.entries(args).map(function(entry) { return entry[0] + '=' + JSON.stringify(entry[1]); });
                 let formatted = items.join(', ');
                 if(formatted.length > 40) formatted = formatted.substring(0, 40) + '...';
                 return formatted;
@@ -568,7 +569,7 @@
         }
 
         function toggleToolBody(id) {
-            const body = document.getElementById(`tool-body-${id}`);
+            const body = document.getElementById('tool-body-' + id);
             body.style.display = body.style.display === 'none' ? 'block' : 'none';
         }
 
@@ -609,17 +610,20 @@
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+                // FIX: Use incremental SSE buffer to avoid dropping partial events across network chunks
+                let sseBuffer = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
                     
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n\n');
+                    sseBuffer += decoder.decode(value, { stream: true });
+                    const events = sseBuffer.split('\n\n');
+                    sseBuffer = events.pop(); // Keep incomplete last event in buffer
                     
-                    for (const line of lines) {
+                    for (const line of events) {
                         if (line.startsWith('data: ')) {
-                            const dataStr = line.replace('data: ', '');
+                            const dataStr = line.slice(6).trim();
                             try {
                                 const data = JSON.parse(dataStr);
                                 
@@ -629,51 +633,49 @@
                                     chatContainer.scrollTop = chatContainer.scrollHeight;
                                 } 
                                 else if (data.type === 'tool_call') {
-                                    activeTextBlock = null; // Next text chunk needs a new block
+                                    activeTextBlock = null;
                                     currentFullText = "";
                                     
                                     const argsDisplay = formatToolArgs(data.args);
                                     const icon = getToolIcon(data.name);
 
-                                    // Parse tool arguments nicely for the expandable view
                                     let argsHtml = '';
                                     try {
                                         const argsObj = JSON.parse(data.args);
-                                        for (const [key, val] of Object.entries(argsObj)) {
-                                            const valStr = String(val);
-                                            // Render multi-line code properly instead of one long line
+                                        for (const key in argsObj) {
+                                            const valStr = String(argsObj[key]);
                                             if (valStr.includes('\\n') || valStr.includes('\n')) {
-                                                argsHtml += `<div><strong>${key}:</strong><pre><code class="language-plaintext">${valStr.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre></div>`;
+                                                argsHtml += '<div><strong>' + key + ':</strong><pre><code class="language-plaintext">' + valStr.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</code></pre></div>';
                                             } else {
-                                                argsHtml += `<div style="margin-bottom:6px"><strong>${key}:</strong> ${valStr.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+                                                argsHtml += '<div style="margin-bottom:6px"><strong>' + key + ':</strong> ' + valStr.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</div>';
                                             }
                                         }
                                     } catch(e) {
                                         argsHtml = data.args;
                                     }
 
-                                    const toolHtml = `
-                                        <div class="tool-card" id="tool-${data.id}">
-                                           <div class="tool-header" onclick="toggleToolBody('${data.id}')">
-                                              <span class="tool-icon">${icon}</span>
-                                              <span class="tool-name">${data.name}(${argsDisplay})</span>
-                                              <span class="tool-status status-running" id="tool-status-${data.id}">
-                                                  <div class="loading-spinner"></div> Working...
-                                              </span>
-                                           </div>
-                                           <div class="tool-body" id="tool-body-${data.id}">
-                                              <div class="tool-args">${argsHtml}</div>
-                                              <div class="tool-result-header">Result:</div>
-                                              <pre><code id="tool-result-${data.id}">Executing...</code></pre>
-                                           </div>
-                                        </div>
-                                    `;
+                                    const toolHtml = '\
+                                        <div class="tool-card" id="tool-' + data.id + '">\
+                                           <div class="tool-header" onclick="toggleToolBody(\'' + data.id + '\')">\
+                                              <span class="tool-icon">' + icon + '</span>\
+                                              <span class="tool-name">' + data.name + '(' + argsDisplay + ')</span>\
+                                              <span class="tool-status status-running" id="tool-status-' + data.id + '">\
+                                                  <div class="loading-spinner"></div> Working...\
+                                              </span>\
+                                           </div>\
+                                           <div class="tool-body" id="tool-body-' + data.id + '">\
+                                              <div class="tool-args">' + argsHtml + '</div>\
+                                              <div class="tool-result-header">Result:</div>\
+                                              <pre><code id="tool-result-' + data.id + '">Executing...</code></pre>\
+                                           </div>\
+                                        </div>\
+                                    ';
                                     activeAiMessage.insertAdjacentHTML('beforeend', toolHtml);
                                     chatContainer.scrollTop = chatContainer.scrollHeight;
                                 }
                                 else if (data.type === 'tool_result') {
-                                    const statusEl = document.getElementById(`tool-status-${data.id}`);
-                                    const resultEl = document.getElementById(`tool-result-${data.id}`);
+                                    const statusEl = document.getElementById('tool-status-' + data.id);
+                                    const resultEl = document.getElementById('tool-result-' + data.id);
                                     
                                     if (statusEl && resultEl) {
                                         const isError = data.result.startsWith('Error');
@@ -687,6 +689,12 @@
                                         resultEl.textContent = data.result;
                                     }
                                 }
+                                else if (data.type === 'done') {
+                                    // Stream completed successfully
+                                }
+                                else if (data.type === 'error') {
+                                    getActiveTextBlock().innerHTML = '<span style="color: var(--error-color)">' + data.content + '</span>';
+                                }
                             } catch (e) {
                                 // Silent skip incomplete chunks
                             }
@@ -695,9 +703,9 @@
                 }
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    getActiveTextBlock().innerHTML += `<br><span style="color: var(--text-secondary)"><em>[Generation Stopped]</em></span>`;
+                    getActiveTextBlock().innerHTML += '<br><span style="color: var(--text-secondary)"><em>[Generation Stopped]</em></span>';
                 } else {
-                    getActiveTextBlock().innerHTML = `<span style="color: var(--error-color)">Error connecting to local server. Make sure main.js is running.</span>`;
+                    getActiveTextBlock().innerHTML = '<span style="color: var(--error-color)">Error connecting to local server. Make sure main.js is running.</span>';
                 }
             } finally {
                 stopBtn.classList.add('hidden');

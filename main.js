@@ -1,16 +1,16 @@
-const readline = require('readline');
 const fs = require('fs/promises');
 const path = require('path');
 const { exec } = require('child_process');
 const util = require('util');
 const http = require('http');
+const https = require('https');
 
 const execPromise = util.promisify(exec);
 
 // --- CONFIGURATION ---
-// FIX: Use environment variable for API key instead of hardcoding
 const API_KEY = process.env.OPENROUTER_API_KEY || "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";
-const MODEL = "poolside/laguna-xs.2:free";
+// FIX: Changed to a general-purpose model that handles normal chat well
+const MODEL = process.env.MODEL || "meta-llama/llama-3.1-8b-instruct:free";
 
 // --- TERMINAL UI COLORS ---
 const colors = {
@@ -23,11 +23,10 @@ const colors = {
 };
 
 // --- STATE ---
-let currentMode = 'normal'; // 'normal' | 'agent'
-// FIX: Dynamic date using new Date().toDateString() instead of hardcoded date
+let currentMode = 'normal';
 let messageHistory = [{
     role: "system",
-    content: "You are a highly capable AI assistant inside a terminal. Current date is " + new Date().toDateString() + ". Location: Bangladesh. \nWhen in Agent mode, you have access to tools to interact with the user's file system and execute commands. \nUse tools efficiently. If reading a file, use 'all' for the whole file, or 'startLine' and 'endLine' to read a specific portion. \nWhen editing a file, provide the exact 'startLine' and 'endLine' numbers, and the new 'content' to replace that section."
+    content: "You are a highly capable AI assistant. Current date is " + new Date().toDateString() + ". Location: Bangladesh. When in Agent mode, you have access to tools to interact with the user's file system and execute commands. Use tools efficiently. If reading a file, use 'all' for the whole file, or 'startLine' and 'endLine' to read a specific portion. When editing a file, provide the exact 'startLine' and 'endLine' numbers, and the new 'content' to replace that section."
 }];
 
 // --- TOOLS SCHEMA ---
@@ -138,7 +137,6 @@ async function executeTool(name, args) {
             case 'read_file': {
                 const content = await fs.readFile(absolutePath, 'utf8');
                 if (parsedArgs.all) return content;
-
                 const lines = content.split('\n');
                 const start = (parsedArgs.startLine || 1) - 1;
                 const end = parsedArgs.endLine || lines.length;
@@ -149,7 +147,6 @@ async function executeTool(name, args) {
                 const lines = content.split('\n');
                 const startIdx = parsedArgs.startLine - 1;
                 const deleteCount = parsedArgs.endLine - parsedArgs.startLine + 1;
-
                 lines.splice(startIdx, deleteCount, parsedArgs.content);
                 await fs.writeFile(absolutePath, lines.join('\n'), 'utf8');
                 return 'Success: Edited ' + absolutePath + '. Replaced lines ' + parsedArgs.startLine + ' to ' + parsedArgs.endLine + '.';
@@ -184,8 +181,27 @@ async function executeTool(name, args) {
     }
 }
 
+// --- FIX: Native HTTPS streaming (no fetch dependency, works on all Node versions) ---
+function httpsPost(url, headers, body) {
+    return new Promise(function(resolve, reject) {
+        const urlObj = new URL(url);
+        const options = {
+            hostname: urlObj.hostname,
+            path: urlObj.pathname + urlObj.search,
+            method: 'POST',
+            headers: Object.assign({ 'Content-Length': Buffer.byteLength(body) }, headers)
+        };
+        const req = https.request(options, function(res) {
+            resolve(res);
+        });
+        req.on('error', reject);
+        req.write(body);
+        req.end();
+    });
+}
+
 // --- API CALL LOGIC WITH STREAMING ---
-async function chatWithModel(messages, onChunk) {
+async function chatWithModel(messages, onChunk, onDone) {
     const payload = {
         model: MODEL,
         messages: messages,
@@ -197,79 +213,76 @@ async function chatWithModel(messages, onChunk) {
         payload.tool_choice = "auto";
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": "Bearer " + API_KEY,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-    });
+    const bodyStr = JSON.stringify(payload);
 
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error('API Error (' + response.status + '): ' + errText);
+    const res = await httpsPost(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+            "Authorization": "Bearer " + API_KEY,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:3000",
+            "X-Title": "Nebula AI PRO"
+        },
+        bodyStr
+    );
+
+    if (res.statusCode !== 200) {
+        let errText = '';
+        for await (const chunk of res) {
+            errText += chunk.toString();
+        }
+        throw new Error('API Error (' + res.statusCode + '): ' + errText);
     }
 
-    const decoder = new TextDecoder("utf-8");
     let buffer = '';
     let finalContent = '';
     let toolCalls = [];
 
-    // Process the stream
-    for await (const chunk of response.body) {
-        buffer += decoder.decode(chunk, { stream: true });
+    for await (const chunk of res) {
+        buffer += chunk.toString();
         let lines = buffer.split('\n');
-        buffer = lines.pop(); // Keep the incomplete line in the buffer
+        buffer = lines.pop();
 
         for (let line of lines) {
             line = line.trim();
-            if (line.startsWith('data: ')) {
-                const dataStr = line.slice(6).trim();
-                if (dataStr === '[DONE]') continue;
+            if (!line.startsWith('data: ')) continue;
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') continue;
 
-                try {
-                    const data = JSON.parse(dataStr);
-                    const delta = data.choices[0]?.delta;
+            try {
+                const data = JSON.parse(dataStr);
+                const delta = data.choices && data.choices[0] && data.choices[0].delta;
+                if (!delta) continue;
 
-                    if (!delta) continue;
-
-                    // Handle text content streaming
-                    if (delta.content) {
-                        finalContent += delta.content;
-                        if (onChunk) onChunk(delta.content);
-                    }
-
-                    // Handle tool call streaming (reconstructing chunks)
-                    if (delta.tool_calls) {
-                        for (let tc of delta.tool_calls) {
-                            let idx = tc.index;
-                            if (!toolCalls[idx]) {
-                                toolCalls[idx] = {
-                                    id: tc.id,
-                                    type: 'function',
-                                    function: { name: '', arguments: '' }
-                                };
-                            }
-                            if (tc.function?.name) toolCalls[idx].function.name += tc.function.name;
-                            if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
-                        }
-                    }
-                } catch (e) {
-                    // Silently ignore incomplete JSON chunks
+                if (delta.content) {
+                    finalContent += delta.content;
+                    if (onChunk) onChunk(delta.content);
                 }
+
+                if (delta.tool_calls) {
+                    for (let tc of delta.tool_calls) {
+                        const idx = tc.index;
+                        if (!toolCalls[idx]) {
+                            toolCalls[idx] = { id: tc.id, type: 'function', function: { name: '', arguments: '' } };
+                        }
+                        if (tc.function && tc.function.name) toolCalls[idx].function.name += tc.function.name;
+                        if (tc.function && tc.function.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
+                    }
+                }
+            } catch (e) {
+                // skip incomplete chunks
             }
         }
     }
 
-    // FIX: Process any remaining data left in buffer after stream ends
-    if (buffer.trim() && buffer.trim().startsWith('data: ')) {
+    // Flush remaining buffer
+    if (buffer.trim().startsWith('data: ')) {
         const dataStr = buffer.trim().slice(6).trim();
         if (dataStr && dataStr !== '[DONE]') {
             try {
                 const data = JSON.parse(dataStr);
-                const delta = data.choices?.[0]?.delta;
-                if (delta?.content) {
+                const delta = data.choices && data.choices[0] && data.choices[0].delta;
+                if (delta && delta.content) {
                     finalContent += delta.content;
                     if (onChunk) onChunk(delta.content);
                 }
@@ -277,11 +290,8 @@ async function chatWithModel(messages, onChunk) {
         }
     }
 
-    // Construct the final message block to add to history
     const resultMessage = { role: "assistant", content: finalContent || null };
-
-    // Filter out any sparse array slots just in case
-    const validToolCalls = toolCalls.filter(tc => tc !== undefined);
+    const validToolCalls = toolCalls.filter(function(tc) { return tc !== undefined; });
     if (validToolCalls.length > 0) {
         resultMessage.tool_calls = validToolCalls;
     }
@@ -290,8 +300,7 @@ async function chatWithModel(messages, onChunk) {
 }
 
 // --- WEB SERVER ---
-const server = http.createServer(async (req, res) => {
-    // Serve the frontend file
+const server = http.createServer(async function(req, res) {
     if (req.url === '/' || req.url === '/index.html') {
         try {
             const content = await fs.readFile(path.join(__dirname, 'public', 'index.html'), 'utf8');
@@ -299,46 +308,58 @@ const server = http.createServer(async (req, res) => {
             res.end(content);
         } catch (err) {
             res.writeHead(500);
-            res.end('Error loading public/index.html. Make sure the file exists.');
+            res.end('Error loading public/index.html.');
         }
     }
-    // Handle Chat API requests from the frontend
     else if (req.url === '/api/chat' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => body += chunk.toString());
-        req.on('end', async () => {
-            const { input, mode } = JSON.parse(body);
+        req.on('data', function(chunk) { body += chunk.toString(); });
+        req.on('end', async function() {
+            let parsed;
+            try {
+                parsed = JSON.parse(body);
+            } catch(e) {
+                res.writeHead(400);
+                res.end('Bad JSON');
+                return;
+            }
 
-            // Set up Server-Sent Events (SSE) stream to the browser
+            const input = parsed.input;
+            const mode = parsed.mode;
+
             res.writeHead(200, {
                 'Content-Type': 'text/event-stream',
                 'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive'
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*'
             });
 
-            currentMode = mode; // Sync the mode from UI
+            currentMode = mode;
             messageHistory.push({ role: "user", content: input });
+
+            // FIX: Track client abort separately; do NOT use req.on('close') to gate the loop
+            let clientAborted = false;
+            req.on('close', function() { clientAborted = true; });
 
             try {
                 let isComplete = false;
 
-                // Watch for client disconnect / stop button pressed
-                req.on('close', () => {
-                    isComplete = true;
-                });
-
-                while (!isComplete) {
-                    const responseMessage = await chatWithModel(messageHistory, (chunk) => {
-                        if (!isComplete) {
-                            res.write('data: ' + JSON.stringify({ type: 'chunk', content: chunk }) + '\n\n');
+                while (!isComplete && !clientAborted) {
+                    const responseMessage = await chatWithModel(
+                        messageHistory,
+                        function(chunk) {
+                            if (!clientAborted) {
+                                res.write('data: ' + JSON.stringify({ type: 'chunk', content: chunk }) + '\n\n');
+                            }
                         }
-                    });
+                    );
 
-                    if (isComplete) break;
+                    if (clientAborted) break;
 
                     if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
                         messageHistory.push(responseMessage);
                         for (const toolCall of responseMessage.tool_calls) {
+                            if (clientAborted) break;
                             const funcName = toolCall.function.name;
                             const funcArgs = toolCall.function.arguments;
 
@@ -360,21 +381,33 @@ const server = http.createServer(async (req, res) => {
                         isComplete = true;
                     }
                 }
-                res.write('data: ' + JSON.stringify({ type: 'done' }) + '\n\n');
+
+                if (!clientAborted) {
+                    res.write('data: ' + JSON.stringify({ type: 'done' }) + '\n\n');
+                }
                 res.end();
             } catch (error) {
-                res.write('data: ' + JSON.stringify({ type: 'error', content: error.message }) + '\n\n');
+                console.error('Chat error:', error.message);
+                if (!clientAborted) {
+                    res.write('data: ' + JSON.stringify({ type: 'error', content: error.message }) + '\n\n');
+                }
                 res.end();
                 messageHistory.pop();
             }
         });
-    } else {
-        res.writeHead(404);
+    }
+    else if (req.method === 'OPTIONS') {
+        res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, GET', 'Access-Control-Allow-Headers': 'Content-Type' });
         res.end();
+    }
+    else {
+        res.writeHead(404);
+        res.end('Not found');
     }
 });
 
-server.listen(3000, () => {
-    console.log(colors.cyan + ' Web interface running at http://localhost:3000' + colors.reset);
-    console.log(colors.yellow + ' Terminal interface has been disabled. Please use the web UI!' + colors.reset);
+server.listen(3000, function() {
+    console.log(colors.cyan + 'Web interface running at http://localhost:3000' + colors.reset);
+    console.log(colors.yellow + 'Set OPENROUTER_API_KEY env var to use your own key.' + colors.reset);
+    console.log(colors.green + 'Set MODEL env var to change the AI model (default: meta-llama/llama-3.1-8b-instruct:free)' + colors.reset);
 });

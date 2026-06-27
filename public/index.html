@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent UI</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Markdown parsing & Code Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #131314;
+            --surface-color: #1e1f20;
+            --surface-hover: #282a2c;
+            --text-primary: #e3e3e3;
+            --text-secondary: #c4c7c5;
+            --accent-color: #a8c7fa;
+            --user-bubble: #333537;
+            --border-color: #444746;
+            --success-color: #93c570;
+            --error-color: #f28b82;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Google Sans', 'Inter', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Model Selector Dropdown */
+        .model-selector {
+            position: relative;
+            margin-right: 8px;
+            margin-bottom: 2px;
+        }
+
+        .model-btn {
+            background: transparent;
+            color: var(--text-primary);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .model-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .model-btn svg {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .model-btn.open svg {
+            transform: rotate(180deg);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            bottom: calc(100% + 12px);
+            left: 0;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 300px;
+            padding: 8px;
+            z-index: 100;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+            display: none;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--surface-hover);
+        }
+
+        .dropdown-item.active {
+            background-color: rgba(168, 199, 250, 0.1);
+        }
+
+        .mode-title {
+            font-weight: 500;
+            font-size: 15px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .dropdown-item.active .mode-title {
+            color: var(--accent-color);
+        }
+
+        .mode-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* Chat Area */
+        #chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            scroll-behavior: smooth;
+        }
+
+        .message-wrapper {
+            display: flex;
+            gap: 16px;
+            max-width: 830px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .message-wrapper.user {
+            justify-content: flex-end;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .avatar-ai {
+            background: linear-gradient(135deg, #a8c7fa, #d3e3fd);
+            color: #041e49;
+        }
+
+        .message-content {
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: calc(100% - 48px);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .user .message-content {
+            background-color: var(--surface-color);
+            padding: 12px 20px;
+            border-radius: 24px;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai .message-content {
+            padding-top: 4px;
+        }
+
+        /* Tool UI Card */
+        .tool-card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            margin: 8px 0;
+        }
+
+        .tool-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .tool-header:hover {
+            background-color: var(--surface-hover);
+        }
+
+        .tool-icon {
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .tool-name {
+            font-size: 14px;
+            font-family: monospace;
+            color: var(--text-primary);
+            flex-grow: 1;
+        }
+
+        .tool-status {
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-running { color: var(--text-secondary); }
+        .status-success { color: var(--success-color); }
+        .status-error { color: var(--error-color); }
+
+        .loading-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--text-secondary);
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tool-body {
+            border-top: 1px solid var(--border-color);
+            padding: 12px;
+            background-color: #1a1a1a;
+            display: none;
+        }
+        
+        .tool-body pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .tool-args {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #333;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .tool-args pre {
+            background-color: #000;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 6px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .tool-result-header {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        /* Markdown Styles */
+        .text-block p { margin-bottom: 12px; }
+        .text-block pre {
+            background-color: var(--surface-color);
+            padding: 16px;
+            border-radius: 12px;
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+            font-family: monospace;
+        }
+        .text-block code:not(pre code) {
+            background-color: var(--surface-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        /* Input Area */
+        .input-container {
+            max-width: 830px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 24px 24px 24px;
+            position: relative;
+        }
+
+        .input-box {
+            background-color: var(--surface-color);
+            border-radius: 24px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: flex-end;
+            transition: background-color 0.2s;
+        }
+
+        .input-box:focus-within {
+            background-color: var(--surface-hover);
+        }
+
+        textarea {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 16px;
+            resize: none;
+            width: 100%;
+            max-height: 200px;
+            min-height: 24px;
+            padding: 8px 0;
+            outline: none;
+            line-height: 1.5;
+        }
+
+        textarea::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .send-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s, background-color 0.2s;
+            margin-bottom: 2px;
+        }
+
+        .send-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .send-btn.active {
+            color: var(--text-primary);
+            background-color: var(--text-primary);
+        }
+        
+        .send-btn.active svg {
+            color: var(--bg-color);
+        }
+
+        .stop-btn {
+            background: transparent;
+            border: none;
+            color: var(--error-color);
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+            margin-bottom: 2px;
+        }
+
+        .stop-btn:hover {
+            background-color: rgba(242, 139, 130, 0.1);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="chat-container">
+        <div class="message-wrapper ai">
+            <div class="avatar avatar-ai">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
+            </div>
+            <div class="message-content">
+                <div class="text-block">
+                    <p>Hello! I am your AI assistant. Click the dropdown in the input box below to switch to <strong>Agent Mode</strong> if you need me to manipulate files or run terminal commands.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-container">
+        <div class="input-box">
+            <div class="model-selector">
+                <button class="model-btn" id="dropdownBtn" onclick="toggleDropdown(event)">
+                    <span id="current-mode-name">Normal Mode</span>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+                </button>
+                <div class="dropdown-menu" id="modeDropdown">
+                    <div class="dropdown-item active" id="item-normal" onclick="selectMode('normal')">
+                        <div class="mode-title">Normal Mode</div>
+                        <div class="mode-desc">Standard AI chat. Fast and intelligent, but has no access to your system.</div>
+                    </div>
+                    <div class="dropdown-item" id="item-agent" onclick="selectMode('agent')">
+                        <div class="mode-title">Agent Mode</div>
+                        <div class="mode-desc">Advanced mode. Can read, write, move files and execute commands on your local system.</div>
+                    </div>
+                </div>
+            </div>
+            <textarea id="promptInput" rows="1" placeholder="Enter a prompt here" oninput="handleInput()"></textarea>
+            <button class="stop-btn hidden" id="stopBtn" onclick="stopGeneration()" title="Stop Generation">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+            </button>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.99.99 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.06-.87.49-.87.99l.01 4.61c0 .71.73 1.2 1.39.92z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let mode = 'normal';
+        const chatContainer = document.getElementById('chat-container');
+        const input = document.getElementById('promptInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const dropdown = document.getElementById('modeDropdown');
+        const dropdownBtn = document.getElementById('dropdownBtn');
+        
+        let activeAiMessage = null;
+        let activeTextBlock = null;
+        let currentFullText = "";
+        let abortController = null;
+
+        // UI: Dropdown Logic
+        function toggleDropdown(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('show');
+            dropdownBtn.classList.toggle('open');
+        }
+
+        window.onclick = function(e) {
+            if (!dropdownBtn.contains(e.target)) {
+                dropdown.classList.remove('show');
+                dropdownBtn.classList.remove('open');
+            }
+        };
+
+        function selectMode(selectedMode) {
+            mode = selectedMode;
+            document.getElementById('current-mode-name').innerText = selectedMode === 'agent' ? 'Agent Mode' : 'Normal Mode';
+            
+            document.getElementById('item-normal').classList.remove('active');
+            document.getElementById('item-agent').classList.remove('active');
+            document.getElementById('item-' + selectedMode).classList.add('active');
+            
+            dropdown.classList.remove('show');
+            dropdownBtn.classList.remove('open');
+        }
+
+        // Configure Markdown options
+        marked.setOptions({
+            highlight: function(code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            }
+        });
+
+        // UI: Text Input Autoresize
+        function handleInput() {
+            input.style.height = 'auto';
+            input.style.height = (input.scrollHeight) + 'px';
+            if (input.value.trim().length > 0) {
+                sendBtn.classList.add('active');
+            } else {
+                sendBtn.classList.remove('active');
+            }
+        }
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Chat DOM Management
+        function appendUserMessage(text) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper user';
+            wrapper.innerHTML = `<div class="message-content">${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+            chatContainer.appendChild(wrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function createAiMessageContainer() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper ai';
+            wrapper.innerHTML = `
+                <div class="avatar avatar-ai">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C12 6.6 6.6 12 0 12C6.6 12 12 17.4 12 24C12 17.4 17.4 12 24 12C17.4 12 12 6.6 12 0Z"/></svg>
+                </div>
+                <div class="message-content"></div>
+            `;
+            chatContainer.appendChild(wrapper);
+            activeAiMessage = wrapper.querySelector('.message-content');
+            activeTextBlock = null; 
+            currentFullText = "";
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function getActiveTextBlock() {
+            if (!activeTextBlock) {
+                activeTextBlock = document.createElement('div');
+                activeTextBlock.className = 'text-block';
+                activeAiMessage.appendChild(activeTextBlock);
+            }
+            return activeTextBlock;
+        }
+
+        // Generate specific tool icons based on the tool's name
+        function getToolIcon(name) {
+            if (name.includes('file') && (name.includes('read') || name.includes('list'))) {
+                return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+            } else if (name.includes('edit') || name.includes('create') || name.includes('write')) {
+                return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`;
+            } else if (name.includes('command') || name.includes('exec') || name.includes('bash')) {
+                return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`;
+            }
+            return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`;
+        }
+        
+        function formatToolArgs(argsStr) {
+            try {
+                const args = JSON.parse(argsStr);
+                const items = Object.entries(args).map(([k,v]) => `${k}=${JSON.stringify(v)}`);
+                let formatted = items.join(', ');
+                if(formatted.length > 40) formatted = formatted.substring(0, 40) + '...';
+                return formatted;
+            } catch(e) { return '...'; }
+        }
+
+        function toggleToolBody(id) {
+            const body = document.getElementById(`tool-body-${id}`);
+            body.style.display = body.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Aborts the current fetch request
+        function stopGeneration() {
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+            }
+            stopBtn.classList.add('hidden');
+            sendBtn.classList.remove('hidden');
+        }
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            input.style.height = 'auto';
+            sendBtn.classList.remove('active');
+            
+            appendUserMessage(text);
+            createAiMessageContainer();
+
+            // Toggle buttons
+            sendBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+
+            abortController = new AbortController();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ input: text, mode: mode }),
+                    signal: abortController.signal
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.replace('data: ', '');
+                            try {
+                                const data = JSON.parse(dataStr);
+                                
+                                if (data.type === 'chunk') {
+                                    currentFullText += data.content;
+                                    getActiveTextBlock().innerHTML = marked.parse(currentFullText);
+                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                } 
+                                else if (data.type === 'tool_call') {
+                                    activeTextBlock = null; // Next text chunk needs a new block
+                                    currentFullText = "";
+                                    
+                                    const argsDisplay = formatToolArgs(data.args);
+                                    const icon = getToolIcon(data.name);
+
+                                    // Parse tool arguments nicely for the expandable view
+                                    let argsHtml = '';
+                                    try {
+                                        const argsObj = JSON.parse(data.args);
+                                        for (const [key, val] of Object.entries(argsObj)) {
+                                            const valStr = String(val);
+                                            // Render multi-line code properly instead of one long line
+                                            if (valStr.includes('\\n') || valStr.includes('\n')) {
+                                                argsHtml += `<div><strong>${key}:</strong><pre><code class="language-plaintext">${valStr.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre></div>`;
+                                            } else {
+                                                argsHtml += `<div style="margin-bottom:6px"><strong>${key}:</strong> ${valStr.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`;
+                                            }
+                                        }
+                                    } catch(e) {
+                                        argsHtml = data.args;
+                                    }
+
+                                    const toolHtml = `
+                                        <div class="tool-card" id="tool-${data.id}">
+                                           <div class="tool-header" onclick="toggleToolBody('${data.id}')">
+                                              <span class="tool-icon">${icon}</span>
+                                              <span class="tool-name">${data.name}(${argsDisplay})</span>
+                                              <span class="tool-status status-running" id="tool-status-${data.id}">
+                                                  <div class="loading-spinner"></div> Working...
+                                              </span>
+                                           </div>
+                                           <div class="tool-body" id="tool-body-${data.id}">
+                                              <div class="tool-args">${argsHtml}</div>
+                                              <div class="tool-result-header">Result:</div>
+                                              <pre><code id="tool-result-${data.id}">Executing...</code></pre>
+                                           </div>
+                                        </div>
+                                    `;
+                                    activeAiMessage.insertAdjacentHTML('beforeend', toolHtml);
+                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                }
+                                else if (data.type === 'tool_result') {
+                                    const statusEl = document.getElementById(`tool-status-${data.id}`);
+                                    const resultEl = document.getElementById(`tool-result-${data.id}`);
+                                    
+                                    if (statusEl && resultEl) {
+                                        const isError = data.result.startsWith('Error');
+                                        if (isError) {
+                                            statusEl.className = 'tool-status status-error';
+                                            statusEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Failed';
+                                        } else {
+                                            statusEl.className = 'tool-status status-success';
+                                            statusEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Success';
+                                        }
+                                        resultEl.textContent = data.result;
+                                    }
+                                }
+                            } catch (e) {
+                                // Silent skip incomplete chunks
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    getActiveTextBlock().innerHTML += `<br><span style="color: var(--text-secondary)"><em>[Generation Stopped]</em></span>`;
+                } else {
+                    getActiveTextBlock().innerHTML = `<span style="color: var(--error-color)">Error connecting to local server. Make sure main.js is running.</span>`;
+                }
+            } finally {
+                stopBtn.classList.add('hidden');
+                sendBtn.classList.remove('hidden');
+                abortController = null;
+            }
+        }
+    </script>
+</body>
+</html>

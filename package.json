@@ -1,25 +1,20 @@
 {
-  "name": "nebula-code-ai",
+  "name": "backup-of-code-nebula",
   "version": "1.0.0",
-  "description": "Nebula Code AI - Desktop AI chat app (Electron + Node.js, OpenRouter + local GGUF)",
-  "main": "main.js",
+  "description": "",
+  "homepage": "https://github.com/damnkidishot-hub/Nebula-Code#readme",
+  "bugs": {
+    "url": "https://github.com/damnkidishot-hub/Nebula-Code/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/damnkidishot-hub/Nebula-Code.git"
+  },
+  "license": "ISC",
   "author": "",
-  "license": "MIT",
+  "type": "commonjs",
+  "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev"
-  },
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "dotenv": "^16.4.5",
-    "node-fetch": "^2.7.0",
-    "sql.js": "^1.12.0",
-    "uuid": "^11.0.3"
-  },
-  "optionalDependencies": {
-    "node-llama-cpp": "^3.1.1"
-  },
-  "devDependencies": {
-    "electron": "^31.0.0"
+    "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
